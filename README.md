@@ -1,5 +1,11 @@
 # ApprendreAI
 
+## Disclaimer
+
+Most of this project, including the below portions of this README.md, were written with the assistance of Claude Code. Please keep this in mind as you explore the repository.
+
+## Overview
+
 ApprendreAI is an AI-assisted French learning tool. You type an English passage and get back a natural French translation, the grammar concepts used in that translation (explained for an A1–B1 learner), and useful vocabulary. Every item is tagged with an approximate CEFR level.
 
 Under the hood, a FastAPI backend sends the passage to an OpenAI model with a **versioned prompt** and a **strict output schema**. It validates the structured reply with Pydantic and records every model run (successful or failed) in PostgreSQL, including model name, prompt version, latency and token usage.
