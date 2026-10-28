@@ -1,0 +1,54 @@
+# Starts the whole app locally:  docker compose up --build
+#
+#   browser ──► frontend (Next.js, :3000)
+#   browser ──► backend  (FastAPI, :8000) ──► db (PostgreSQL) + OpenAI API
+#
+# Values like ${OPENAI_API_KEY} are read from the .env file next to this file.
+# Each service only receives the variables it needs.
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data   # data survives container restarts
+    ports:
+      - "5432:5432"   # exposed so you can inspect the DB from your machine (psql, DBeaver...)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+  backend:
+    build: ./backend
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?Set OPENAI_API_KEY in .env}
+      OPENAI_MODEL: ${OPENAI_MODEL:?Set OPENAI_MODEL in .env}
+      OPENAI_INPUT_PRICE_PER_1M_TOKENS: ${OPENAI_INPUT_PRICE_PER_1M_TOKENS:-}
+      OPENAI_OUTPUT_PRICE_PER_1M_TOKENS: ${OPENAI_OUTPUT_PRICE_PER_1M_TOKENS:-}
+      # "db" is the service name above; Docker's internal DNS resolves it to the container.
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-http://localhost:3000}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy   # wait until Postgres accepts connections before migrating
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # NEXT_PUBLIC_ values are baked into the JavaScript at build time.
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
